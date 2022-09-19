@@ -1,12 +1,16 @@
 import argparse
 
 import pytorch_lightning as pl 
+from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 
+from src.models.baseline.baseline import BaseLine
 from src.datamodules.lince import LinceDM
 
 from config import (
     MAX_EPOCHS,
     LEARNING_RATE,
+    PATH_EXPERIMENTS,
+    PROJECT_NAME,
     WEIGHT_DECAY,
     DROPOUT_RATE,
     MAX_SEQUENCE_LENGTH,
@@ -20,11 +24,39 @@ from config import (
 def test_dm(args):
     dm = LinceDM(
         model_name=args.base_model, 
-        dataset_name=args.dataset
+        dataset_name=args.dataset, 
+        batch_size=args.batch_size,
+        max_seq_len=args.max_seq_len,
+        padding=args.padding,
+        num_workers=args.workers
     )
 
     dm.setup()
     print(next(iter(dm.train_dataloader())))
+
+
+def main(args):
+    # Init DM 
+
+    # Init Model 
+
+    # Init Logger & Trainer 
+    
+    logger = WandbLogger(
+        name="", 
+        save_dir=PATH_EXPERIMENTS,
+        id="",
+        project=PROJECT_NAME,
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=args.epochs,
+        gpus=args.gpus,
+        logger=logger,
+    )
+
+    # Runs
+
 
 
 if __name__=="__main__":
