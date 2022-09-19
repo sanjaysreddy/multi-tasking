@@ -1,0 +1,9 @@
+{
+    "python.analysis.extraPaths": [
+        "*.src", 
+        "*.datamodules", 
+        "*.models", 
+        "*.modules", 
+        "*.utils"
+    ]
+}
