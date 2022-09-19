@@ -1,4 +1,9 @@
+# Cache Files
+**/__pycache__/
+**/.DS_Store
+
 # Runs 
+runs/
 
 # Data
 data/
