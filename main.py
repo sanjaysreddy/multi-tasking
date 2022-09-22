@@ -1,4 +1,5 @@
 import argparse
+from numpy import require
 
 import pytorch_lightning as pl 
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
@@ -77,6 +78,7 @@ def main(args):
         max_epochs=args.epochs,
         gpus=args.gpus,
         logger=logger,
+        log_every_n_steps=20,
     )
 
     # Runs
@@ -98,6 +100,8 @@ if __name__=="__main__":
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
     parser.add_argument("--unfreeze", type=bool, default=None, help="Freeze or Unfreeze base model")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
+
+    parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
 
     # Hardware
     parser.add_argument("--workers", type=int, default=NUM_WORKERS, help="Set CPU Threads")
