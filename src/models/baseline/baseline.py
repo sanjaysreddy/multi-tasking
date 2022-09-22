@@ -11,6 +11,7 @@ from torchmetrics.functional import precision, recall, f1_score
 from torchcrf import CRF
 
 from src.modules.base_model import BaseModel
+from src.modules.mtl_loss import MultiTaskLossWrapper
 
 from config import (
     LABEL2ID,
@@ -34,7 +35,10 @@ class BaseLine(pl.LightningModule):
         ner_learning_rate: float = LEARNING_RATE,
         lid_learning_rate: float = LEARNING_RATE,
         weight_decay: float = WEIGHT_DECAY,
+        ner_wd: float = WEIGHT_DECAY,
+        lid_wd: float = WEIGHT_DECAY,
         dropout_rate: float = DROPOUT_RATE,
+        freeze: str = "unfreeze"
     ) -> None:
 
         super().__init__()
@@ -46,20 +50,27 @@ class BaseLine(pl.LightningModule):
         # Shared params
         self.base_model = BaseModel(self.hparams.model_name)
 
+        # Freeze pre-trained model
+        if self.hparams.freeze == "freeze":
+            self.base_model.freeze()
+
         self.bi_lstm = nn.LSTM(
             input_size=self.base_model.model.config.hidden_size,
             hidden_size=256,
             batch_first=True,
             bidirectional=True
         )
+
+        self.shared_net = nn.Sequential(
+            nn.Linear(512, 128), 
+            nn.GELU(), 
+            nn.Linear(128, 32),
+            nn.GELU()
+        )
         
         # NER Task params
         self.ner_net = nn.Sequential(
-            nn.Linear(512, 128), 
-            nn.LeakyReLU(), 
-            nn.Linear(128, 32),
-            nn.LeakyReLU(),
-            nn.Linear(32, len(self.hparams.label2id) + 1)
+            nn.Linear(32, len(self.hparams.label2id) + 1), 
         )
 
         self.ner_crf = CRF(
@@ -69,10 +80,6 @@ class BaseLine(pl.LightningModule):
 
         # LID Task params 
         self.lid_net = nn.Sequential(
-            nn.Linear(512, 128), 
-            nn.LeakyReLU(), 
-            nn.Linear(128, 32),
-            nn.LeakyReLU(),
             nn.Linear(32, len(self.hparams.lid2id) + 1)
         )
 
@@ -80,6 +87,8 @@ class BaseLine(pl.LightningModule):
             num_tags=len(self.hparams.lid2id) + 1,
             batch_first=True
         )
+
+        self.weighted_loss = MultiTaskLossWrapper(num_tasks=2)     # LID and NER: two tasks
 
 
     def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor):
@@ -90,12 +99,13 @@ class BaseLine(pl.LightningModule):
 
         base_outs = base_model_outs.last_hidden_state 
         lstm_outs, _ = self.bi_lstm(base_outs)
-        
+        shared_net_outs = self.shared_net(lstm_outs)
+
         # NER 
-        ner_net_outs = self.ner_net(lstm_outs)
+        ner_net_outs = self.ner_net(shared_net_outs)
 
         # LID
-        lid_net_outs = self.lid_net(lstm_outs)
+        lid_net_outs = self.lid_net(shared_net_outs)
 
         return ner_net_outs, lid_net_outs
     
@@ -116,9 +126,12 @@ class BaseLine(pl.LightningModule):
         lid_path = self.lid_crf.decode(lid_emissions)
         lid_path = torch.tensor(lid_path, device=self.device).long()
 
-        # Simply summing loss for now 
         # TODO: Weighted Loss
-        loss = ner_loss + lid_loss 
+        # Simply summing loss for now 
+        # loss = ner_loss + lid_loss 
+        
+        loss = self.weighted_loss(ner_loss, lid_loss)
+
 
         ner_metrics = self._compute_metrics(ner_path, labels, "train", "ner")
         lid_metrics = self._compute_metrics(lid_path, lids, "train", "lid")
@@ -170,14 +183,7 @@ class BaseLine(pl.LightningModule):
         
         no_decay = ["bias", "LayerNorm.weight"]
 
-        optimizer_grouped_parameters = [
-            {
-                'params': [
-                    p 
-                    for n, p in self.base_model.named_parameters()
-                    if not any(nd in n for nd in no_decay)
-                ],
-            },  
+        optimizer_grouped_parameters = [ 
             {
                 'params': [
                     p 
@@ -189,10 +195,18 @@ class BaseLine(pl.LightningModule):
             {
                 'params': [
                     p 
+                    for n, p in self.shared_net.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+            },
+            {
+                'params': [
+                    p 
                     for n, p in self.ner_net.named_parameters()
                     if not any(nd in n for nd in no_decay)
                 ],
-                'lr': self.hparams.ner_learning_rate
+                'lr': self.hparams.ner_learning_rate,
+                'weight_decay': self.hparams.ner_wd
             }, 
             {
                 'params': [
@@ -200,7 +214,8 @@ class BaseLine(pl.LightningModule):
                     for n, p in self.lid_net.named_parameters()
                     if not any(nd in n for nd in no_decay)
                 ], 
-                'lr': self.hparams.lid_learning_rate
+                'lr': self.hparams.lid_learning_rate,
+                'weight_decay': self.hparams.lid_wd
             }, 
             {
                 'params': [
@@ -212,8 +227,18 @@ class BaseLine(pl.LightningModule):
             }
         ]
 
+        if self.hparams.freeze != "freeze":
+            optimizer_grouped_parameters.append({
+                'params': [
+                    p 
+                    for n, p in self.base_model.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+            })
+        
         optimizer = torch.optim.AdamW(
             params=optimizer_grouped_parameters, 
+            # params=self.parameters(),
             lr=self.hparams.learning_rate,
             weight_decay=self.hparams.weight_decay
         )

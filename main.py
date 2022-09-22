@@ -3,11 +3,13 @@ from numpy import require
 
 import pytorch_lightning as pl 
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
+from pytorch_lightning.utilities.seed import seed_everything
 
 from src.models.baseline.baseline import BaseLine
 from src.datamodules.lince import LinceDM
 
 from config import (
+    GLOBAL_SEED,
     MAX_EPOCHS,
     LEARNING_RATE,
     PATH_EXPERIMENTS,
@@ -37,6 +39,10 @@ def test_dm(args):
 
 
 def main(args):
+    
+    # Set global seed 
+    seed_everything(GLOBAL_SEED)
+
     # Init DM 
     dm = LinceDM(
         model_name=args.base_model, 
@@ -57,7 +63,8 @@ def main(args):
         ner_learning_rate=args.ner_lr, 
         lid_learning_rate=args.lid_lr, 
         weight_decay=args.weight_decay,
-        dropout_rate=args.dropout
+        dropout_rate=args.dropout,
+        freeze=args.freeze
     )
 
     # Init Logger & Trainer 
@@ -71,12 +78,13 @@ def main(args):
 
     logger = TensorBoardLogger(
         save_dir=PATH_EXPERIMENTS,
-        name="test-run"
+        name=args.run_name
     )
 
     trainer = pl.Trainer(
         max_epochs=args.epochs,
-        gpus=args.gpus,
+        accelerator="gpu",
+        devices=args.gpus,
         logger=logger,
         log_every_n_steps=20,
     )
@@ -93,12 +101,14 @@ if __name__=="__main__":
     parser.add_argument("--ner_lr", type=float, default=LEARNING_RATE, help="Set task learning rate")
     parser.add_argument("--lid_lr", type=float, default=LEARNING_RATE, help="Set task learning rate")
     parser.add_argument("--weight_decay", type=float, default=WEIGHT_DECAY, help="Set Weight Decay")
+    parser.add_argument("--ner_wd", type=float, default=WEIGHT_DECAY, help="Set weight decay")
+    parser.add_argument("--lid_wd", type=float, default=WEIGHT_DECAY, help="Set weight decay")
     parser.add_argument("--dropout", type=float, default=DROPOUT_RATE, help="Set dropout rate")
     parser.add_argument("--max_seq_len", type=int, default=MAX_SEQUENCE_LENGTH, help="Set max seq length")
     parser.add_argument("--padding", type=str, default=PADDING, help="Set padding style")
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Set batch size")
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
-    parser.add_argument("--unfreeze", type=bool, default=None, help="Freeze or Unfreeze base model")
+    parser.add_argument("--freeze", type=bool, default="unfreeze", help="Freeze or Unfreeze base model")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
 
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
