@@ -37,16 +37,40 @@ def test_dm(args):
 
 def main(args):
     # Init DM 
+    dm = LinceDM(
+        model_name=args.base_model, 
+        dataset_name=args.dataset, 
+        batch_size=args.batch_size,
+        max_seq_len=args.max_seq_len,
+        padding=args.padding,
+        num_workers=args.workers
+    )
 
     # Init Model 
+    
+    model = BaseLine(
+        model_name=args.base_model, 
+        max_seq_len=args.max_seq_len, 
+        padding=args.padding, 
+        learning_rate=args.lr, 
+        ner_learning_rate=args.ner_lr, 
+        lid_learning_rate=args.lid_lr, 
+        weight_decay=args.weight_decay,
+        dropout_rate=args.dropout
+    )
 
     # Init Logger & Trainer 
     
-    logger = WandbLogger(
-        name="", 
+    # logger = WandbLogger(
+    #     name="", 
+    #     save_dir=PATH_EXPERIMENTS,
+    #     id="",
+    #     project=PROJECT_NAME,
+    # )
+
+    logger = TensorBoardLogger(
         save_dir=PATH_EXPERIMENTS,
-        id="",
-        project=PROJECT_NAME,
+        name="test-run"
     )
 
     trainer = pl.Trainer(
@@ -56,8 +80,7 @@ def main(args):
     )
 
     # Runs
-
-
+    trainer.fit(model, datamodule=dm)
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
@@ -65,6 +88,8 @@ if __name__=="__main__":
     # Hyperparams
     parser.add_argument("--epochs", type=int, default=MAX_EPOCHS, help="Set max epochs")
     parser.add_argument("--lr", type=float, default=LEARNING_RATE, help="Set Learning Rate")
+    parser.add_argument("--ner_lr", type=float, default=LEARNING_RATE, help="Set task learning rate")
+    parser.add_argument("--lid_lr", type=float, default=LEARNING_RATE, help="Set task learning rate")
     parser.add_argument("--weight_decay", type=float, default=WEIGHT_DECAY, help="Set Weight Decay")
     parser.add_argument("--dropout", type=float, default=DROPOUT_RATE, help="Set dropout rate")
     parser.add_argument("--max_seq_len", type=int, default=MAX_SEQUENCE_LENGTH, help="Set max seq length")
@@ -80,4 +105,5 @@ if __name__=="__main__":
 
     args = parser.parse_args()
 
-    test_dm(args)
+    # test_dm(args)
+    main(args)
