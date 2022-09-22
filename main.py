@@ -63,6 +63,8 @@ def main(args):
         ner_learning_rate=args.ner_lr, 
         lid_learning_rate=args.lid_lr, 
         weight_decay=args.weight_decay,
+        ner_wd=args.ner_wd,
+        lid_wd=args.lid_wd,
         dropout_rate=args.dropout,
         freeze=args.freeze
     )

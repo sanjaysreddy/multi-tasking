@@ -10,6 +10,8 @@ from pytorch_lightning.utilities.types import STEP_OUTPUT
 from torchmetrics.functional import precision, recall, f1_score
 from torchcrf import CRF
 
+from transformers.optimization import AdamW
+
 from src.modules.base_model import BaseModel
 from src.modules.mtl_loss import MultiTaskLossWrapper
 
@@ -236,9 +238,15 @@ class BaseLine(pl.LightningModule):
                 ],
             })
         
-        optimizer = torch.optim.AdamW(
-            params=optimizer_grouped_parameters, 
-            # params=self.parameters(),
+        # optimizer = torch.optim.AdamW(
+        #     params=optimizer_grouped_parameters, 
+        #     # params=self.parameters(),
+        #     lr=self.hparams.learning_rate,
+        #     weight_decay=self.hparams.weight_decay
+        # )
+
+        optimizer = AdamW(
+            params=optimizer_grouped_parameters,
             lr=self.hparams.learning_rate,
             weight_decay=self.hparams.weight_decay
         )
