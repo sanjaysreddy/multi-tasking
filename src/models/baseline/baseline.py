@@ -65,14 +65,17 @@ class BaseLine(pl.LightningModule):
 
         self.shared_net = nn.Sequential(
             nn.Linear(512, 128), 
+            nn.LayerNorm(128),
             nn.GELU(), 
             nn.Linear(128, 32),
+            nn.LayerNorm(32),
             nn.GELU()
         )
         
         # NER Task params
         self.ner_net = nn.Sequential(
             nn.Linear(32, len(self.hparams.label2id) + 1), 
+            nn.LayerNorm(len(self.hparams.label2id) + 1),
         )
 
         self.ner_crf = CRF(
@@ -82,7 +85,8 @@ class BaseLine(pl.LightningModule):
 
         # LID Task params 
         self.lid_net = nn.Sequential(
-            nn.Linear(32, len(self.hparams.lid2id) + 1)
+            nn.Linear(32, len(self.hparams.lid2id) + 1), 
+            nn.LayerNorm(len(self.lid2id) + 1)
         )
 
         self.lid_crf = CRF(
