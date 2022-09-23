@@ -86,7 +86,7 @@ class BaseLine(pl.LightningModule):
         # LID Task params 
         self.lid_net = nn.Sequential(
             nn.Linear(32, len(self.hparams.lid2id) + 1), 
-            nn.LayerNorm(len(self.lid2id) + 1)
+            nn.LayerNorm(len(self.hparams.lid2id) + 1)
         )
 
         self.lid_crf = CRF(
@@ -189,6 +189,8 @@ class BaseLine(pl.LightningModule):
         
         no_decay = ["bias", "LayerNorm.weight"]
 
+        # * The params for which there is no lr or weight_decay key will use global lr and weight_decay 
+        # * [ i.e. lr and weight_decay args in AdamW ]
         optimizer_grouped_parameters = [ 
             {
                 'params': [
@@ -242,20 +244,18 @@ class BaseLine(pl.LightningModule):
                 ],
             })
         
-        # optimizer = torch.optim.AdamW(
-        #     params=optimizer_grouped_parameters, 
-        #     # params=self.parameters(),
-        #     lr=self.hparams.learning_rate,
-        #     weight_decay=self.hparams.weight_decay
-        # )
-
         optimizer = AdamW(
             params=optimizer_grouped_parameters,
             lr=self.hparams.learning_rate,
             weight_decay=self.hparams.weight_decay
         )
 
-        return optimizer
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer=optimizer, 
+            T_0=50,               # First restart after T_0 epochs
+        )
+
+        return [optimizer], [lr_scheduler]
     
 
     def _compute_metrics(self, preds: torch.Tensor, targets: torch.Tensor, mode: str, task: str):
