@@ -55,7 +55,12 @@ def main(args):
     )
 
     # Init Model 
-    
+    freeze = False
+    if args.freeze == "freeze": 
+        freeze=True
+
+    print(freeze)
+
     model = BaseLine(
         model_name=args.base_model, 
         max_seq_len=args.max_seq_len, 
@@ -67,7 +72,7 @@ def main(args):
         ner_wd=args.ner_wd,
         lid_wd=args.lid_wd,
         dropout_rate=args.dropout,
-        freeze=args.freeze
+        freeze=freeze
     )
 
     # Init Logger & Trainer 
@@ -87,7 +92,7 @@ def main(args):
     es = EarlyStopping(
         monitor="f1/val-ner", 
         mode='max',
-        stopping_threshold=0.8,
+        patience=2,
     )
 
     trainer = pl.Trainer(
@@ -118,7 +123,7 @@ if __name__=="__main__":
     parser.add_argument("--padding", type=str, default=PADDING, help="Set padding style")
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Set batch size")
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
-    parser.add_argument("--freeze", type=bool, default="unfreeze", help="Freeze or Unfreeze base model")
+    parser.add_argument("--freeze", type=str, default="unfreeze", help="Freeze or Unfreeze base model")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
 

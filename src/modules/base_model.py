@@ -1,6 +1,6 @@
-from turtle import forward
 import torch
 import torch.nn as nn 
+import pytorch_lightning as pl 
 
 from transformers import AutoConfig, AutoModel 
 
@@ -8,7 +8,7 @@ from config import (
     PATH_BASE_MODELS
 )
 
-class BaseModel(nn.Module):
+class BaseModel(pl.LightningModule):
     def __init__(
         self, 
         model_name: str,
@@ -33,13 +33,5 @@ class BaseModel(nn.Module):
             attention_mask=attention_mask,
             output_hidden_states=True
         )
-    
-    def freeze(self):
-        for param in self.parameters():
-            param.requires_grad = False   
-        
-    def unfreeze(self):
-        for param in self.parameters():
-            param.requires_grad = True 
     
 

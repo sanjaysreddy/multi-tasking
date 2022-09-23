@@ -40,7 +40,7 @@ class BaseLine(pl.LightningModule):
         ner_wd: float = WEIGHT_DECAY,
         lid_wd: float = WEIGHT_DECAY,
         dropout_rate: float = DROPOUT_RATE,
-        freeze: str = "unfreeze"
+        freeze: bool = False
     ) -> None:
 
         super().__init__()
@@ -53,7 +53,7 @@ class BaseLine(pl.LightningModule):
         self.base_model = BaseModel(self.hparams.model_name)
 
         # Freeze pre-trained model
-        if self.hparams.freeze == "freeze":
+        if self.hparams.freeze:
             self.base_model.freeze()
 
         self.bi_lstm = nn.LSTM(
@@ -252,7 +252,7 @@ class BaseLine(pl.LightningModule):
 
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer=optimizer, 
-            T_0=50,               # First restart after T_0 epochs
+            T_0=20,               # First restart after T_0 epochs [50 Initial value ]
         )
 
         return [optimizer], [lr_scheduler]
