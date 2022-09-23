@@ -4,6 +4,7 @@ from numpy import require
 import pytorch_lightning as pl 
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.utilities.seed import seed_everything
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 from src.models.baseline.baseline import BaseLine
 from src.datamodules.lince import LinceDM
@@ -83,12 +84,19 @@ def main(args):
         name=args.run_name
     )
 
+    es = EarlyStopping(
+        monitor="f1/val-ner", 
+        mode='max',
+        stopping_threshold=0.8,
+    )
+
     trainer = pl.Trainer(
         max_epochs=args.epochs,
         accelerator="gpu",
         devices=args.gpus,
         logger=logger,
         log_every_n_steps=20,
+        callbacks=[es]
     )
 
     # Runs
@@ -112,7 +120,6 @@ if __name__=="__main__":
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
     parser.add_argument("--freeze", type=bool, default="unfreeze", help="Freeze or Unfreeze base model")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
-
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
 
     # Hardware
