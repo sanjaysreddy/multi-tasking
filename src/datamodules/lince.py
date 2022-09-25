@@ -23,17 +23,11 @@ from config import (
 
 class LinceDM(pl.LightningDataModule):
 
-    data_map = {
-        "lince": {
-            "train": [f"{PATH_LINCE_DATASET}/train.json"], 
-            "validation": [f"{PATH_LINCE_DATASET}/val.json"]
-        }
-    }
-
     def __init__(
         self,
         model_name: str,
-        dataset_name: str, 
+        dataset_name: str,
+        dataset_dir = PATH_LINCE_DATASET, 
         batch_size: int = BATCH_SIZE,
         max_seq_len: int = MAX_SEQUENCE_LENGTH,
         padding: str = PADDING, 
@@ -46,12 +40,20 @@ class LinceDM(pl.LightningDataModule):
 
         self.model_name_or_path = model_name
         self.dataset_name = dataset_name
+        self.dataset_dir = dataset_dir
         self.batch_size = batch_size
         self.max_seq_len = max_seq_len
         self.padding = padding 
         self.label2id = label2id
         self.lid2id = lid2id
         self.num_workers = num_workers
+
+        self.data_map = {
+        "lince": {
+            "train": [f"{self.dataset_dir}/train.json"], 
+            "validation": [f"{self.dataset_dir}/val.json"]
+        }
+    }
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path=self.model_name_or_path,

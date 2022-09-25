@@ -16,6 +16,7 @@ from config import (
     MAX_EPOCHS,
     LEARNING_RATE,
     PATH_EXPERIMENTS,
+    PATH_LINCE_DATASET,
     PROJECT_NAME,
     WARM_RESTARTS,
     WEIGHT_DECAY,
@@ -51,6 +52,7 @@ def main(args):
     dm = LinceDM(
         model_name=args.base_model, 
         dataset_name=args.dataset, 
+        dataset_dir=args.dataset_dir,
         batch_size=args.batch_size,
         max_seq_len=args.max_seq_len,
         padding=args.padding,
@@ -81,17 +83,17 @@ def main(args):
 
     # Init Logger & Trainer 
     
-    # logger = WandbLogger(
-    #     name="", 
-    #     save_dir=PATH_EXPERIMENTS,
-    #     id="",
-    #     project=PROJECT_NAME,
-    # )
-
-    logger = TensorBoardLogger(
+    logger = WandbLogger(
+        name=args.run_name, 
         save_dir=PATH_EXPERIMENTS,
-        name=args.run_name
+        id=args.run_name,
+        project=PROJECT_NAME,
     )
+
+    # logger = TensorBoardLogger(
+    #     save_dir=PATH_EXPERIMENTS,
+    #     name=args.run_name
+    # )
 
     es = EarlyStopping(
         monitor="f1/val-ner", 
@@ -138,6 +140,7 @@ if __name__=="__main__":
     parser.add_argument("--freeze", type=str, default="unfreeze", help="Freeze or Unfreeze base model")
     parser.add_argument("--warm_restart_epochs", type=str, default=WARM_RESTARTS, help="Set LR Scheduler Warmups")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
+    parser.add_argument("--dataset_dir", type=str, default=PATH_LINCE_DATASET, help="Set datset directory")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
 
     # Hardware
