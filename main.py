@@ -83,17 +83,18 @@ def main(args):
 
     # Init Logger & Trainer 
     
-    logger = WandbLogger(
-        name=args.run_name, 
+    logger = TensorBoardLogger(
         save_dir=PATH_EXPERIMENTS,
-        id=args.run_name,
-        project=PROJECT_NAME,
+        name=args.run_name
     )
 
-    # logger = TensorBoardLogger(
-    #     save_dir=PATH_EXPERIMENTS,
-    #     name=args.run_name
-    # )
+    if args.logger == "wandb":
+        logger = WandbLogger(
+            name=args.run_name, 
+            save_dir=PATH_EXPERIMENTS,
+            id=args.run_name,
+            project=PROJECT_NAME,
+        )
 
     es = EarlyStopping(
         monitor="f1/val-ner", 
@@ -142,6 +143,7 @@ if __name__=="__main__":
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
     parser.add_argument("--dataset_dir", type=str, default=PATH_LINCE_DATASET, help="Set datset directory")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
+    parser.add_argument("--logger", type=str, default="tensorboard", help="Set logging software")
 
     # Hardware
     parser.add_argument("--workers", type=int, default=NUM_WORKERS, help="Set CPU Threads")
