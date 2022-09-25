@@ -18,7 +18,8 @@ from src.modules.mtl_loss import MultiTaskLossWrapper
 from config import (
     LABEL2ID,
     LEARNING_RATE,
-    LID2ID, 
+    LID2ID,
+    WARM_RESTARTS, 
     WEIGHT_DECAY,
     DROPOUT_RATE,
     MAX_SEQUENCE_LENGTH,
@@ -36,6 +37,7 @@ class BaseLine(pl.LightningModule):
         learning_rate: float = LEARNING_RATE, 
         ner_learning_rate: float = LEARNING_RATE,
         lid_learning_rate: float = LEARNING_RATE,
+        warm_restart_epochs: int = WARM_RESTARTS,
         weight_decay: float = WEIGHT_DECAY,
         ner_wd: float = WEIGHT_DECAY,
         lid_wd: float = WEIGHT_DECAY,
@@ -252,7 +254,7 @@ class BaseLine(pl.LightningModule):
 
         lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer=optimizer, 
-            T_0=20,               # First restart after T_0 epochs [50 Initial value ]
+            T_0=self.hparams.warm_restart_epochs,               # First restart after T_0 epochs [50 Initial value, 20 ]
         )
 
         return [optimizer], [lr_scheduler]

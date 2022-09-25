@@ -1,4 +1,5 @@
 import argparse
+from logging.handlers import WatchedFileHandler
 from numpy import require
 
 import pytorch_lightning as pl 
@@ -16,6 +17,7 @@ from config import (
     LEARNING_RATE,
     PATH_EXPERIMENTS,
     PROJECT_NAME,
+    WARM_RESTARTS,
     WEIGHT_DECAY,
     DROPOUT_RATE,
     MAX_SEQUENCE_LENGTH,
@@ -69,6 +71,7 @@ def main(args):
         learning_rate=args.lr, 
         ner_learning_rate=args.ner_lr, 
         lid_learning_rate=args.lid_lr, 
+        warm_restart_epochs=args.warm_restart_epochs,
         weight_decay=args.weight_decay,
         ner_wd=args.ner_wd,
         lid_wd=args.lid_wd,
@@ -93,7 +96,7 @@ def main(args):
     es = EarlyStopping(
         monitor="f1/val-ner", 
         mode='max',
-        patience=2,
+        patience=5,
     )
 
     cp = ModelCheckpoint(
@@ -133,6 +136,7 @@ if __name__=="__main__":
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Set batch size")
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
     parser.add_argument("--freeze", type=str, default="unfreeze", help="Freeze or Unfreeze base model")
+    parser.add_argument("--warm_restart_epochs", type=str, default=WARM_RESTARTS, help="Set LR Scheduler Warmups")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
 

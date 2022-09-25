@@ -20,6 +20,8 @@ MAX_EPOCHS = 30
 BATCH_SIZE = 32
 
 LEARNING_RATE = 3e-5
+WARM_RESTARTS = 50          # Restart after 50 epochs
+
 WEIGHT_DECAY = 0
 DROPOUT_RATE = 1e-3
 
