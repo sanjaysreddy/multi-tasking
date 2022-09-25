@@ -3,6 +3,7 @@
 **/.DS_Store
 
 # Project
+checkpoints/
 runs/
 data/
 base_models/

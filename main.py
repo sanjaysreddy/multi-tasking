@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
 from pytorch_lightning.utilities.seed import seed_everything
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.models.baseline.baseline import BaseLine
 from src.datamodules.lince import LinceDM
@@ -95,13 +96,21 @@ def main(args):
         patience=2,
     )
 
+    cp = ModelCheckpoint(
+        dirpath="./checkpoints",
+        filename=f"{args.base_model}" + "-{f1/val-ner: .4f}",
+        monitor='f1/val-ner',
+        save_top_k=3,
+        mode='max',
+    )
+
     trainer = pl.Trainer(
         max_epochs=args.epochs,
         accelerator="gpu",
         devices=args.gpus,
         logger=logger,
         log_every_n_steps=20,
-        callbacks=[es]
+        callbacks=[es, cp]
     )
 
     # Runs
