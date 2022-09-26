@@ -103,7 +103,7 @@ def main(args):
     )
 
     cp = ModelCheckpoint(
-        dirpath="./checkpoints",
+        dirpath=args.checkpoint_path,
         filename=f"{args.base_model}" + "-{f1/val-ner: .4f}",
         monitor='f1/val-ner',
         save_top_k=3,
@@ -144,6 +144,7 @@ if __name__=="__main__":
     parser.add_argument("--dataset_dir", type=str, default=PATH_LINCE_DATASET, help="Set datset directory")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
     parser.add_argument("--logger", type=str, default="tensorboard", help="Set logging software")
+    parser.add_argument("--checkpoint_path", type=str, default="./checkpoints", help="Set path to save models")
 
     # Hardware
     parser.add_argument("--workers", type=int, default=NUM_WORKERS, help="Set CPU Threads")
