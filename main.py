@@ -1,6 +1,5 @@
 import argparse
-from logging.handlers import WatchedFileHandler
-from numpy import require
+import torch
 
 import pytorch_lightning as pl 
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
@@ -116,7 +115,8 @@ def main(args):
         devices=args.gpus,
         logger=logger,
         log_every_n_steps=20,
-        callbacks=[es, cp]
+        callbacks=[es, cp], 
+        deterministic=True,        # Get same results on differnt GPUs ( hopefully )
     )
 
     # Runs
@@ -153,4 +153,8 @@ if __name__=="__main__":
     args = parser.parse_args()
 
     # test_dm(args)
+
+    # Check for reproducibility on differnt GPUs
+    # torch.use_deterministic_algorithms(True)
+
     main(args)
