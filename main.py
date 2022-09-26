@@ -139,7 +139,7 @@ if __name__=="__main__":
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Set batch size")
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
     parser.add_argument("--freeze", type=str, default="unfreeze", help="Freeze or Unfreeze base model")
-    parser.add_argument("--warm_restart_epochs", type=str, default=WARM_RESTARTS, help="Set LR Scheduler Warmups")
+    parser.add_argument("--warm_restart_epochs", type=int, default=WARM_RESTARTS, help="Set LR Scheduler Warmups")
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
     parser.add_argument("--dataset_dir", type=str, default=PATH_LINCE_DATASET, help="Set datset directory")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
