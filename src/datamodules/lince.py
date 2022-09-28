@@ -57,7 +57,8 @@ class LinceDM(pl.LightningDataModule):
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path=self.model_name_or_path,
-            cache_dir=PATH_BASE_MODELS
+            cache_dir=PATH_BASE_MODELS, 
+            useFast=True,
         )
     
     def prepare_data(self) -> None:
