@@ -90,7 +90,7 @@ def main(args):
     if args.logger == "wandb":
         logger = WandbLogger(
             name=args.run_name, 
-            save_dir=PATH_EXPERIMENTS,
+            save_dir=args.exp_path,
             id=args.run_name,
             project=PROJECT_NAME,
         )
@@ -145,6 +145,7 @@ if __name__=="__main__":
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
     parser.add_argument("--logger", type=str, default="tensorboard", help="Set logging software")
     parser.add_argument("--checkpoint_path", type=str, default="./checkpoints", help="Set path to save models")
+    parser.add_argument("--exp_path", type=str, default=PATH_EXPERIMENTS, help="Set exp runs logs path")
 
     # Hardware
     parser.add_argument("--workers", type=int, default=NUM_WORKERS, help="Set CPU Threads")
