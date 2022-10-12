@@ -1,5 +1,7 @@
 from typing import Optional
 
+import numpy as np
+from sklearn.model_selection import KFold 
 import torch 
 import pytorch_lightning as pl 
 
@@ -7,10 +9,12 @@ from pytorch_lightning.utilities.types import TRAIN_DATALOADERS, EVAL_DATALOADER
 
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer 
-from datasets import load_dataset
+import datasets as ds
 
 from config import (
     BATCH_SIZE,
+    GLOBAL_SEED,
+    K_CROSSFOLD_VALIDATION_SPLITS,
     LABEL2ID,
     LID2ID,
     MAX_SEQUENCE_LENGTH,
@@ -62,7 +66,7 @@ class LinceDM(pl.LightningDataModule):
         )
     
     def prepare_data(self) -> None:
-        load_dataset(
+        ds.load_dataset(
             'json',
             data_files=self.data_map[self.dataset_name], 
             field='data', 
@@ -70,7 +74,7 @@ class LinceDM(pl.LightningDataModule):
         )
     
     def setup(self, stage: Optional[str] = None) -> None:
-        self.dataset = load_dataset(
+        self.dataset = ds.load_dataset(
             'json', 
             data_files=self.data_map[self.dataset_name], 
             field="data", 
@@ -174,3 +178,89 @@ class LinceDM(pl.LightningDataModule):
 
         
         return batch_tags, batch_lids
+
+
+class CrossValidationLinceDM(LinceDM):
+    def __init__(
+        self,
+        model_name: str,
+        dataset_name: str,
+        k: int,
+        dataset_dir = PATH_LINCE_DATASET, 
+        batch_size: int = BATCH_SIZE,
+        max_seq_len: int = MAX_SEQUENCE_LENGTH,
+        padding: str = PADDING, 
+        label2id: dict = LABEL2ID,
+        lid2id: dict = LID2ID,
+        num_splits: int = K_CROSSFOLD_VALIDATION_SPLITS,
+        num_workers: int = NUM_WORKERS,
+        split_seed: int = GLOBAL_SEED,
+    ) -> None: 
+        super().__init__(model_name, dataset_name)
+        self.save_hyperparameters(logger=False)
+
+
+    def prepare_data(self) -> None:
+        ds.load_dataset(
+            'json',
+            data_files=f"{self.hparams.dataset_dir}/data.json", 
+            field='data', 
+            cache_dir=PATH_CACHE_DATASET
+        )
+    
+    def setup(self, stage: Optional[str] = None) -> None:
+        self.dataset = ds.load_dataset(
+            'json', 
+            data_files=f"{self.hparams.dataset_dir}/data.json",
+            field='data',
+            cache_dir=PATH_CACHE_DATASET
+        )
+
+        # Random state is essential to get same splits
+        kf = KFold(n_splits=10, shuffle=True, random_state=self.hparams.split_seed)
+
+        splits = kf.split(np.zeros(self.dataset['train'].num_rows))
+        all_splits = [k for k in splits]
+        train_idxs, val_idxs = all_splits[self.hparams.k]
+
+        self.dataset = ds.DatasetDict({
+            'train': self.dataset['train'].select(train_idxs), 
+            'validation': self.dataset['train'].select(val_idxs), 
+            'test': self.dataset['train'].select(val_idxs)
+        })
+        
+        self.dataset['train'] = self.dataset['train'].map(
+            self._convert_to_features,
+            batched=True,
+            drop_last_batch=True,
+            batch_size=self.batch_size,
+            num_proc=self.num_workers
+        )
+
+        self.dataset['validation'] = self.dataset['validation'].map(
+            self._convert_to_features,
+            batched=True,
+            drop_last_batch=True,
+            batch_size=self.batch_size,
+            num_proc=self.num_workers
+        )
+
+        self.dataset['test'] = self.dataset['test'].map(
+            self._convert_to_features,
+            batched=True,
+            drop_last_batch=True,
+            batch_size=self.batch_size,
+            num_proc=self.num_workers
+        )
+
+        self.dataset['train'].set_format('torch', columns=['input_ids', 'attention_mask', 'labels', 'lids'])
+        self.dataset['validation'].set_format('torch', columns=['input_ids', 'attention_mask', 'labels', 'lids'])
+        self.dataset['test'].set_format('torch', columns=['input_ids', 'attention_mask', 'labels', 'lids'])
+
+    def test_dataloader(self) -> EVAL_DATALOADERS:
+        return DataLoader(
+            dataset=self.dataset["test"], 
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            drop_last=True
+        )

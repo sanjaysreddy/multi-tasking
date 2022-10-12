@@ -183,6 +183,35 @@ class BaseLine(pl.LightningModule):
         self.log_dict(lid_metrics, on_step=False, on_epoch=True)
 
     
+    def test_step(self, batch, batch_idx) -> Optional[STEP_OUTPUT]:
+        input_ids = batch['input_ids']
+        attention_mask = batch['attention_mask']
+        labels = batch['labels']
+        lids = batch['lids']
+
+        ner_emissions, lid_emissions = self(input_ids, attention_mask)
+
+        ner_loss = -self.ner_crf(ner_emissions, labels, attention_mask.bool())
+        lid_loss = -self.lid_crf(lid_emissions, lids, attention_mask.bool())
+
+        ner_path = self.ner_crf.decode(ner_emissions)
+        ner_path = torch.tensor(ner_path, device=self.device).long()
+
+        lid_path = self.lid_crf.decode(lid_emissions)
+        lid_path = torch.tensor(lid_path, device=self.device).long()
+
+        loss = ner_loss + lid_loss 
+        ner_metrics = self._compute_metrics(ner_path, labels, "test", "ner")
+        lid_metrics = self._compute_metrics(lid_path, lids, "test", "lid")
+
+        self.log("loss/val", loss)
+        self.log("loss-ner/val", ner_loss)
+        self.log("loss-lid/val", lid_loss)
+
+        self.log_dict(ner_metrics)
+        self.log_dict(lid_metrics)
+
+    
     def configure_optimizers(self):
         
         # Same LR for shared params and different LR for different tasks params

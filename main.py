@@ -8,10 +8,11 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.models.baseline.baseline import BaseLine
-from src.datamodules.lince import LinceDM
+from src.datamodules.lince import LinceDM, CrossValidationLinceDM
 
 from config import (
     GLOBAL_SEED,
+    K_CROSSFOLD_VALIDATION_SPLITS,
     MAX_EPOCHS,
     LEARNING_RATE,
     PATH_EXPERIMENTS,
@@ -29,13 +30,15 @@ from config import (
 )
 
 def test_dm(args):
-    dm = LinceDM(
+    dm = CrossValidationLinceDM(
+        k=1,
         model_name=args.base_model, 
         dataset_name=args.dataset, 
         batch_size=args.batch_size,
         max_seq_len=args.max_seq_len,
         padding=args.padding,
-        num_workers=args.workers
+        num_workers=args.workers, 
+        num_splits=args.crossfold_splits,
     )
 
     dm.setup()
@@ -122,6 +125,79 @@ def main(args):
     # Runs
     trainer.fit(model, datamodule=dm)
 
+
+def kcrossfold(args):
+    print(f"CURRENT-FOLD-RUN: {args.k + 1}")
+
+    # Init DM
+    dm = CrossValidationLinceDM(
+        k=args.k,
+        model_name=args.base_model, 
+        dataset_name=args.dataset, 
+        dataset_dir=args.dataset_dir,
+        batch_size=args.batch_size,
+        max_seq_len=args.max_seq_len,
+        padding=args.padding,
+        num_workers=args.workers, 
+        num_splits=args.crossfold_splits,
+    )
+
+    # Init Model
+    freeze = False
+    if args.freeze == "freeze": 
+        freeze=True
+    print(freeze)
+
+    model = BaseLine(
+        model_name=args.base_model, 
+        max_seq_len=args.max_seq_len, 
+        padding=args.padding, 
+        learning_rate=args.lr, 
+        ner_learning_rate=args.ner_lr, 
+        lid_learning_rate=args.lid_lr, 
+        warm_restart_epochs=args.warm_restart_epochs,
+        weight_decay=args.weight_decay,
+        ner_wd=args.ner_wd,
+        lid_wd=args.lid_wd,
+        dropout_rate=args.dropout,
+        freeze=freeze
+    )
+
+
+    run_name = f"fold-{args.k}-{args.run_name}"
+    logger = TensorBoardLogger(
+        save_dir=PATH_EXPERIMENTS,
+        name=run_name
+    )
+
+    if args.logger == "wandb":
+        logger = WandbLogger(
+            name=run_name, 
+            save_dir=args.exp_path,
+            id=run_name,
+            project=PROJECT_NAME,
+        )   
+    
+    es = EarlyStopping(
+        monitor="f1/val-ner", 
+        mode='max',
+        patience=5,
+    )
+
+    trainer = pl.Trainer(
+        max_epochs=args.epochs,
+        accelerator="gpu",
+        devices=args.gpus,
+        logger=logger,
+        log_every_n_steps=20,
+        callbacks=[es], 
+        deterministic=True,        # Get same results on differnt GPUs ( hopefully )
+    )
+
+    # Runs
+    trainer.fit(model, datamodule=dm)
+    trainer.test(model, datamodule=dm)
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     
@@ -140,6 +216,9 @@ if __name__=="__main__":
     parser.add_argument("--base_model", type=str, default=BASE_MODEL, help="Set base transformer model")
     parser.add_argument("--freeze", type=str, default="unfreeze", help="Freeze or Unfreeze base model")
     parser.add_argument("--warm_restart_epochs", type=int, default=WARM_RESTARTS, help="Set LR Scheduler Warmups")
+    parser.add_argument("--crossfold_splits", type=int, default=K_CROSSFOLD_VALIDATION_SPLITS, help="Set no. of splits")
+    parser.add_argument("--k", type=int, help="Set fold idx")
+
     parser.add_argument("--dataset", type=str, default="lince", help="Set dataset to be used")
     parser.add_argument("--dataset_dir", type=str, default=PATH_LINCE_DATASET, help="Set datset directory")
     parser.add_argument("--run_name", type=str, required=True, help="Set run name per experiment")
@@ -158,4 +237,5 @@ if __name__=="__main__":
     # Check for reproducibility on differnt GPUs
     # torch.use_deterministic_algorithms(True)
 
-    main(args)
+    # main(args)
+    kcrossfold(args)
