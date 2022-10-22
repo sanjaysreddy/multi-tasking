@@ -3,7 +3,8 @@ import torch
 
 # PATHS 
 PATH_LINCE_DATASET = os.environ.get("PATH_LINCE_DATASET", "./data/lince/ner")
-
+PATH_GLUECOS_LID = os.environ.get("PATH_GLUECOS_LID_DATASET", "./data/GLUECoS/LID/Romanized")
+PATH_GLUECOS_NER = os.environ.get("PATH_GLUECOS_NER_DATASET", "./data/GLUECoS/NER/Romanized")
 PATH_BASE_MODELS = os.environ.get("PATH_BASE_MODELS", "./base_models")
 PATH_CACHE_DATASET = os.environ.get("PATH_CACHE_DATASET", "./data/cache")
 
@@ -43,6 +44,22 @@ LID2ID = {
     "hi": 0, 
     "en": 1, 
     "rest": 2
+}
+
+GLC_NER_LABEL2ID = {
+    "Other": 0,
+    "B-Per": 1,
+    "I-Per": 2,
+    "B-Org": 3,
+    "I-Org": 4,
+    "B-Loc": 5,
+    "I-Loc": 6
+}
+
+GLC_LID_LABEL2ID = {
+    "EN": 0,
+    "HI": 1,
+    "OTHER": 2
 }
 
 K_CROSSFOLD_VALIDATION_SPLITS = 10

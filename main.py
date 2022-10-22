@@ -8,7 +8,10 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from src.models.baseline.baseline import BaseLine
+from src.models.multidataset.sequencemultitask import SequenceMultiTaskModel
 from src.datamodules.lince import LinceDM, CrossValidationLinceDM
+from src.datamodules.gluecos.task import Task
+from src.datamodules.gluecos.GLUECoSSequenceLabelDataModule import GLUECoSSequenceLabelDataModule
 
 from config import (
     GLOBAL_SEED,
@@ -27,6 +30,8 @@ from config import (
     BASE_MODEL,
     NUM_WORKERS,
     AVAIL_GPUS,
+    GLC_NER_LABEL2ID,
+    GLC_LID_LABEL2ID
 )
 
 def test_dm(args):
@@ -198,6 +203,69 @@ def kcrossfold(args):
     trainer.fit(model, datamodule=dm)
     trainer.test(model, datamodule=dm)
 
+def multidataset(args):
+    seed_everything(42)
+    
+    # important to keep the order of label2ids, tasknames and tasks same.
+    label2ids = [ GLC_NER_LABEL2ID, GLC_LID_LABEL2ID ]
+    tasknames = ['NER', 'LID']
+    tasks = [
+    Task(GLC_NER_LABEL2ID,
+        'NER',
+        'data/GLUECoS/NER/Romanized/train.txt',
+        'data/GLUECoS/NER/Romanized/validation.txt'),
+    Task(GLC_LID_LABEL2ID,
+        'LID',
+        'data/GLUECoS/LID/Romanized/train.txt',
+        'data/GLUECoS/LID/Romanized/validation.txt')
+    ]
+    
+    isFreezed = args.freeze
+    if isFreezed is None:
+        isFreezed = 'F'
+    else:
+        isFreezed = 'U'    # Unfreezed
+    
+    run_name = args.run_name
+    if run_name is None:
+        run_name = f"{args.task}|{isFreezed}|bm-{args.base_model}|epochs-{args.epochs}|lr-{args.lr}|bs-{args.batch_size}|sl-{args.max_seq_len}"
+    
+    dm = GLUECoSSequenceLabelDataModule(
+        tasks,
+        args.max_seq_len,
+        args.base_model,
+        args.batch_size,
+        args.workers
+    )
+    
+    model = SequenceMultiTaskModel(
+        label2ids,
+        tasknames,
+        args.base_model,
+        args.padding,
+        args.lr,
+        args.weight_decay
+    )
+    
+    logger = WandbLogger(
+        name=run_name, 
+        save_dir=PATH_EXPERIMENTS,
+        id=run_name, 
+        project=PROJECT_NAME
+    )
+
+    # configure trainer
+    trainer = pl.Trainer(
+        log_every_n_steps=10,
+        logger=logger,
+        max_epochs=args.epochs,
+        gpus=args.gpus,
+        # gradient_clip_val=0.1,
+        # gradient_clip_algorithm="value"
+    )
+
+    trainer.fit(model, datamodule=dm)
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     
@@ -238,4 +306,5 @@ if __name__=="__main__":
     # torch.use_deterministic_algorithms(True)
 
     # main(args)
-    kcrossfold(args)
+    # kcrossfold(args)
+    multidataset(args)
