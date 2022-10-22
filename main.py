@@ -201,7 +201,7 @@ def kcrossfold(args):
 
     # Runs
     trainer.fit(model, datamodule=dm)
-    trainer.test(model, datamodule=dm)
+    # trainer.test(model, datamodule=dm)
 
 def multidataset(args):
     seed_everything(42)
