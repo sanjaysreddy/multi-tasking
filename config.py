@@ -62,6 +62,26 @@ GLC_LID_LABEL2ID = {
     "OTHER": 2
 }
 
+GLC_POS_LABEL2ID = {
+    "PRON": 0,
+    "VERB": 1,
+    "ADJ": 2,
+    "ADP": 3,
+    "AUX": 4,
+    "CCONJ": 5,
+    "DET": 6,
+    "PUNCT": 7,
+    "SYM": 8,
+    "NOUN": 9,
+    "PART": 10,
+    "PROPN": 11,
+    "ADV": 12,
+    "SCONJ": 13,
+    "INTJ": 14,
+    "NUM": 15,
+    "X": 16
+}
+
 K_CROSSFOLD_VALIDATION_SPLITS = 10
 
 # PROJECT CONFIGURATION

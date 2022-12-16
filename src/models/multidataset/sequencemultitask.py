@@ -4,8 +4,20 @@ import torch.nn as nn
 import pytorch_lightning as pl
 from torchcrf import CRF
 from torchmetrics.functional import accuracy, precision, recall, f1_score
+from torch.optim import AdamW
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+from config import (
+    LABEL2ID,
+    LEARNING_RATE,
+    LID2ID,
+    WARM_RESTARTS, 
+    WEIGHT_DECAY,
+    DROPOUT_RATE,
+    MAX_SEQUENCE_LENGTH,
+    PADDING
+)
 
 class TaskHead(nn.Module):
     def __init__(self, n_labels):
@@ -38,7 +50,15 @@ class SequenceMultiTaskModel(pl.LightningModule):
         model_name_or_path,
         padding,
         learning_rate,
-        weight_decay,
+        weight_decay: float = WEIGHT_DECAY,
+        ner_learning_rate: float = LEARNING_RATE,
+        lid_learning_rate: float = LEARNING_RATE,
+        pos_learning_rate: float = LEARNING_RATE,
+        warm_restart_epochs: int = WARM_RESTARTS,
+        ner_wd: float = WEIGHT_DECAY,
+        lid_wd: float = WEIGHT_DECAY,
+        pos_wd: float = WEIGHT_DECAY,
+        dropout_rate: float = DROPOUT_RATE
     ) -> None:
         super(SequenceMultiTaskModel, self).__init__()
 
@@ -89,6 +109,13 @@ class SequenceMultiTaskModel(pl.LightningModule):
             self.task_heads.append(
                 TaskHead( len(self.label2ids[i]) )
             )
+            
+            if task_names[i] == 'NER':
+                self.ner_net = self.task_heads[-1]
+            elif task_names[i] == 'LID':
+                self.lid_net = self.task_heads[-1]
+            else:
+                self.pos_net = self.task_heads[-1]
             
             self.log_vars.append(nn.Parameter(torch.zeros(1)))
 
@@ -169,56 +196,92 @@ class SequenceMultiTaskModel(pl.LightningModule):
         
         metrics = {}
         # metrics[f"acc/{mode}"] = accuracy(preds, labels, num_classes=len(self.label2id) + 1, ignore_index=self.special_tag_id)
-        metrics[f"prec/{mode}"] = precision(preds, labels, num_classes=len(self.label2ids[task_id]) + 1, ignore_index=self.special_tag_ids[task_id], average="macro")
-        metrics[f"rec/{mode}"] = recall(preds, labels, num_classes=len(self.label2ids[task_id]) + 1, ignore_index=self.special_tag_ids[task_id], average="macro")
-        metrics[f"f1/{mode}"] = f1_score(preds, labels, num_classes=len(self.label2ids[task_id]) + 1, ignore_index=self.special_tag_ids[task_id], average="macro")
+        metrics[f"prec/{mode}"] = precision(preds, labels, num_classes=len(self.label2ids[task_id]) + 1, ignore_index=self.special_tag_ids[task_id], average="macro", task='multiclass')
+        metrics[f"rec/{mode}"] = recall(preds, labels, num_classes=len(self.label2ids[task_id]) + 1, ignore_index=self.special_tag_ids[task_id], average="macro", task='multiclass')
+        metrics[f"f1/{mode}"] = f1_score(preds, labels, num_classes=len(self.label2ids[task_id]) + 1, ignore_index=self.special_tag_ids[task_id], average="macro", task='multiclass')
 
         return metrics
     
     def configure_optimizers(self):
         
-        parameters = [
-        {
-            'params': self.baseModel.parameters()
-        },
-        {
-            'params': self.bi_lstm.parameters(),
-            'lr': 1e-5
-        },
-        {
-            'params': self.linear.parameters(),
-            'lr': 1e-6
-        }
-        ]
+        # Same LR for shared params and different LR for different tasks params
+        # Same weight decay for shared params and different weight decay for different tasks params 
+        # TODO: Experiment with Different LRs
         
-        for log_var in self.log_vars:
-            parameters.append(
+        no_decay = ["bias", "LayerNorm.weight"]
+
+        # * The params for which there is no lr or weight_decay key will use global lr and weight_decay 
+        # * [ i.e. lr and weight_decay args in AdamW ]
+        optimizer_grouped_parameters = [ 
             {
-                'params': log_var
+                'params': [
+                    p 
+                    for n, p in self.bi_lstm.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+
+            }, 
+            {
+                'params': [
+                    p 
+                    for n, p in self.linear.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+            },
+            {
+                'params': [
+                    p 
+                    for n, p in self.ner_net.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+                'lr': self.hparams.ner_learning_rate,
+                'weight_decay': self.hparams.ner_wd
+            }, 
+            {
+                'params': [
+                    p
+                    for n, p in self.lid_net.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ], 
+                'lr': self.hparams.lid_learning_rate,
+                'weight_decay': self.hparams.lid_wd
+            },
+            {
+                'params': [
+                    p
+                    for n, p in self.pos_net.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ], 
+                'lr': self.hparams.pos_learning_rate,
+                'weight_decay': self.hparams.pos_wd
+            },
+            {
+                'params': [
+                    p 
+                    for n, p in self.named_parameters()
+                    if any(nd in n for nd in no_decay)
+                ], 
+                'weight_decay': 0.0
             }
-            )
+        ]
+
+        optimizer_grouped_parameters.append({
+            'params': [
+                p 
+                for n, p in self.baseModel.named_parameters()
+                if not any(nd in n for nd in no_decay)
+            ],
+        })
         
-        for name, module in self.named_modules():
-            if 'Task NER TaskHead' == name:
-                parameters.append(
-                {
-                    'params': module.parameters(),
-                    'lr': 2e-6
-                }
-                )
-            
-            elif 'Task LID TaskHead' == name:
-                parameters.append(
-                {
-                    'params': module.parameters(),
-                    'lr': 5e-8
-                }
-                )
-    
-        optimizer = torch.optim.AdamW(
-            params=parameters,
-            lr=self.learning_rate,
-            weight_decay=self.weight_decay
+        optimizer = AdamW(
+            params=optimizer_grouped_parameters,
+            lr=self.hparams.learning_rate,
+            weight_decay=self.hparams.weight_decay
         )
 
-        return optimizer
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer=optimizer, 
+            T_0=self.hparams.warm_restart_epochs,               # First restart after T_0 epochs [50 Initial value, 20 ]
+        )
+
+        return [optimizer], [lr_scheduler]
