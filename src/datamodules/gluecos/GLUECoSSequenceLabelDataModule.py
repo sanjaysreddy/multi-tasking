@@ -79,13 +79,13 @@ class GLUECoSSequenceLabelDataModule(pl.LightningDataModule):
     def setup(self, stage):
         self.train_data = []
         for task in self.tasks:
-            self.train_data.append(self._read_gluecos_(task.train_path))
+            self.train_data.append(self._read_gluecos_(task.train_path, task.name=='POS'))
             self.train_data[-1] = self._mtokenize_(self.train_data[-1], task.label2id)
         self.training_dataset = TaskDataset(self.train_data)
     
         self.val_data = []
         for task in self.tasks:
-            self.val_data.append(self._read_gluecos_(task.val_path))
+            self.val_data.append(self._read_gluecos_(task.val_path, task.name=='POS'))
             self.val_data[-1] = self._mtokenize_(self.val_data[-1], task.label2id)
         self.validation_dataset = TaskDataset(self.val_data)
             
@@ -108,7 +108,7 @@ class GLUECoSSequenceLabelDataModule(pl.LightningDataModule):
           word2id
           ]
     
-    def _read_gluecos_(self, file_path):
+    def _read_gluecos_(self, file_path, is_pos=False):
         toret = []
         with open(file_path, encoding='utf-8') as f:
             datapoint = [[], []]
@@ -123,7 +123,10 @@ class GLUECoSSequenceLabelDataModule(pl.LightningDataModule):
                     try:
                         split_line = line.split('\t')
                         datapoint[0].append(split_line[0])
-                        datapoint[1].append(split_line[1])
+                        if is_pos:
+                            datapoint[1].append(split_line[2])
+                        else:
+                            datapoint[1].append(split_line[1])
                     except:
                         datapoint = [[], []] #just reset the datapoint.
             

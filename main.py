@@ -1,5 +1,6 @@
 import argparse
 import torch
+import wandb
 
 import pytorch_lightning as pl 
 from pytorch_lightning.loggers import TensorBoardLogger, WandbLogger
@@ -31,7 +32,8 @@ from config import (
     NUM_WORKERS,
     AVAIL_GPUS,
     GLC_NER_LABEL2ID,
-    GLC_LID_LABEL2ID
+    GLC_LID_LABEL2ID,
+    GLC_POS_LABEL2ID
 )
 
 def test_dm(args):
@@ -49,6 +51,19 @@ def test_dm(args):
     dm.setup()
     print(next(iter(dm.train_dataloader())))
 
+sweep_configuration = {
+    'method': 'random',
+    'name': 'sweep',
+    'metric': {'goal': 'maximize', 'name': 'val_acc'},
+    'parameters':
+    {
+        'batch_size': {'values': [16, 32, 64]},
+        'epochs': {'values': [5, 10, 15]},
+        'lr': {'max': 0.1, 'min': 0.01}
+    }
+}
+
+sweep_id = wandb.sweep(sweep=sweep_configuration, project='my-first-sweep')
 
 def main(args):
     
@@ -203,12 +218,14 @@ def kcrossfold(args):
     trainer.fit(model, datamodule=dm)
     # trainer.test(model, datamodule=dm)
 
+
+
 def multidataset(args):
     seed_everything(42)
     
     # important to keep the order of label2ids, tasknames and tasks same.
-    label2ids = [ GLC_NER_LABEL2ID, GLC_LID_LABEL2ID ]
-    tasknames = ['NER', 'LID']
+    label2ids = [ GLC_NER_LABEL2ID, GLC_LID_LABEL2ID, GLC_POS_LABEL2ID ]
+    tasknames = ['NER', 'LID', 'POS']
     tasks = [
     Task(GLC_NER_LABEL2ID,
         'NER',
@@ -217,7 +234,11 @@ def multidataset(args):
     Task(GLC_LID_LABEL2ID,
         'LID',
         'data/GLUECoS/LID/Romanized/train.txt',
-        'data/GLUECoS/LID/Romanized/validation.txt')
+        'data/GLUECoS/LID/Romanized/validation.txt'),
+    Task(GLC_POS_LABEL2ID,
+        'POS',
+        'data/GLUECoS/POS_EN_HI_UD/Romanized/train.txt',
+        'data/GLUECoS/POS_EN_HI_UD/Romanized/validation.txt')
     ]
     
     isFreezed = args.freeze
@@ -244,7 +265,10 @@ def multidataset(args):
         args.base_model,
         args.padding,
         args.lr,
-        args.weight_decay
+        args.weight_decay,
+        ner_learning_rate = 3e-4,
+        lid_learning_rate = 3e-5,
+        pos_learning_rate = 3e-4
     )
     
     logger = WandbLogger(
@@ -308,3 +332,5 @@ if __name__=="__main__":
     # main(args)
     # kcrossfold(args)
     multidataset(args)
+
+wandb.agent(sweep_id, function=main, count=4)
