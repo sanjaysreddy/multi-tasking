@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import STEP_OUTPUT
 
 from torchmetrics.functional import precision, recall, f1_score
-from torchcrf import CRF
+from TorchCRF import CRF
 
 from transformers.optimization import AdamW
 
@@ -122,7 +122,8 @@ class BaseLine(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['labels']
         lids = batch['lids']
-
+        print(f"True NER labels (sample): {labels[0]}")
+        print(f"True LID labels (sample): {lids[0]}")
         ner_emissions, lid_emissions = self(input_ids, attention_mask)
 
         ner_loss = -self.ner_crf(ner_emissions, labels, attention_mask.bool())
@@ -133,7 +134,8 @@ class BaseLine(pl.LightningModule):
 
         lid_path = self.lid_crf.decode(lid_emissions)
         lid_path = torch.tensor(lid_path, device=self.device).long()
-
+        print(f"NER predicted indices (sample): {ner_path[0]}")
+        print(f"LID predicted indices (sample): {lid_path[0]}")
         # TODO: Weighted Loss
         # Simply summing loss for now 
         # loss = ner_loss + lid_loss 
@@ -159,7 +161,8 @@ class BaseLine(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['labels']
         lids = batch['lids']
-
+        print(f"True NER labels (sample): {labels[0]}")
+        print(f"True LID labels (sample): {lids[0]}")
         ner_emissions, lid_emissions = self(input_ids, attention_mask)
 
         ner_loss = -self.ner_crf(ner_emissions, labels, attention_mask.bool())
@@ -170,7 +173,8 @@ class BaseLine(pl.LightningModule):
 
         lid_path = self.lid_crf.decode(lid_emissions)
         lid_path = torch.tensor(lid_path, device=self.device).long()
-
+        print(f"NER predicted indices (sample): {ner_path[0]}")
+        print(f"LID predicted indices (sample): {lid_path[0]}")
         loss = ner_loss + lid_loss 
         ner_metrics = self._compute_metrics(ner_path, labels, "val", "ner")
         lid_metrics = self._compute_metrics(lid_path, lids, "val", "lid")
@@ -188,7 +192,8 @@ class BaseLine(pl.LightningModule):
         attention_mask = batch['attention_mask']
         labels = batch['labels']
         lids = batch['lids']
-
+        print(f"True NER labels (sample): {labels[0]}")
+        print(f"True LID labels (sample): {lids[0]}")
         ner_emissions, lid_emissions = self(input_ids, attention_mask)
 
         ner_loss = -self.ner_crf(ner_emissions, labels, attention_mask.bool())
@@ -199,7 +204,8 @@ class BaseLine(pl.LightningModule):
 
         lid_path = self.lid_crf.decode(lid_emissions)
         lid_path = torch.tensor(lid_path, device=self.device).long()
-
+        print(f"NER predicted indices (sample): {ner_path[0]}")
+        print(f"LID predicted indices (sample): {lid_path[0]}")
         loss = ner_loss + lid_loss 
         ner_metrics = self._compute_metrics(ner_path, labels, "test", "ner")
         lid_metrics = self._compute_metrics(lid_path, lids, "test", "lid")
@@ -302,42 +308,47 @@ class BaseLine(pl.LightningModule):
                 preds, targets, 
                 average="macro", 
                 num_classes=len(self.hparams.label2id) + 1, 
-                ignore_index=self.ner_pad_token_label
+                ignore_index=self.ner_pad_token_label,
+                task="multiclass"
             )
             
             metrics[f"rec/{mode}-{task}"] = recall(
                 preds, targets, 
                 average="macro", 
                 num_classes=len(self.hparams.label2id) + 1,
-                ignore_index=self.ner_pad_token_label
+                ignore_index=self.ner_pad_token_label,
+                task="multiclass"
             )
 
             metrics[f"f1/{mode}-{task}"] = f1_score(
                 preds, targets, 
                 average="macro", 
                 num_classes=len(self.hparams.label2id) + 1,
-                ignore_index=self.ner_pad_token_label
-            )
+                ignore_index=self.ner_pad_token_label,
+                task="multiclass")
 
         elif task == "lid":
             metrics[f"prec/{mode}-{task}"] = precision(
                 preds, targets, 
                 average="macro", 
                 num_classes=len(self.hparams.label2id) + 1, 
-                ignore_index=self.lid_pad_token_label
+                ignore_index=self.lid_pad_token_label,
+                task="multiclass"
             )
             metrics[f"rec/{mode}-{task}"] = recall(
                 preds, targets, 
                 average="macro", 
                 num_classes=len(self.hparams.label2id) + 1, 
-                ignore_index=self.lid_pad_token_label
+                ignore_index=self.lid_pad_token_label,
+                task="multiclass"
             )
 
             metrics[f"f1/{mode}-{task}"] = f1_score(
                 preds, targets, 
                 average="macro", 
                 num_classes=len(self.hparams.label2id) + 1, 
-                ignore_index=self.lid_pad_token_label
+                ignore_index=self.lid_pad_token_label,
+                task="multiclass"
             )
 
         return metrics 
