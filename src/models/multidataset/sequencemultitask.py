@@ -2,7 +2,7 @@ from src.modules.base_model import BaseModel
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from torchcrf import CRF
+from TorchCRF import CRF
 from torchmetrics.functional import accuracy, precision, recall, f1_score
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
