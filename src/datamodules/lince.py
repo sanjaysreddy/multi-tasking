@@ -128,7 +128,12 @@ class LinceDM(pl.LightningDataModule):
         )    
 
         features["labels"], features["lids"] = self._align_tags(features, batch['bio_tag'], batch["lid"]) 
+
+        # Print to verify the columns in the output
+        #print(f"Features: {features.keys()}")
+        
         return features
+
 
 
     def _align_tags(self, tokenized_outs, tags, lids):
@@ -199,7 +204,6 @@ class CrossValidationLinceDM(LinceDM):
         super().__init__(model_name, dataset_name)
         self.save_hyperparameters(logger=False)
 
-
     def prepare_data(self) -> None:
         ds.load_dataset(
             'json',
@@ -207,7 +211,7 @@ class CrossValidationLinceDM(LinceDM):
             field='data', 
             cache_dir=PATH_CACHE_DATASET
         )
-    
+        
     def setup(self, stage: Optional[str] = None) -> None:
         self.dataset = ds.load_dataset(
             'json', 
@@ -228,30 +232,33 @@ class CrossValidationLinceDM(LinceDM):
             'validation': self.dataset['train'].select(val_idxs), 
             'test': self.dataset['train'].select(val_idxs)
         })
-        
+        #print(f"Train size: {len(self.dataset['train'])}, Validation size: {len(self.dataset['validation'])}, Test size: {len(self.dataset['test'])}")
+   
         self.dataset['train'] = self.dataset['train'].map(
+            
             self._convert_to_features,
             batched=True,
             drop_last_batch=True,
             batch_size=self.batch_size,
             num_proc=self.num_workers
         )
-
+        #print(f"Train dataset after mapping: {self.dataset['train'][:5]}")
         self.dataset['validation'] = self.dataset['validation'].map(
             self._convert_to_features,
             batched=True,
-            drop_last_batch=True,
+            drop_last_batch=False,
             batch_size=self.batch_size,
             num_proc=self.num_workers
         )
-
+        #print(f"Validation dataset after mapping: {self.dataset['validation'][:5]}")
         self.dataset['test'] = self.dataset['test'].map(
             self._convert_to_features,
             batched=True,
-            drop_last_batch=True,
+            drop_last_batch=False,
             batch_size=self.batch_size,
             num_proc=self.num_workers
         )
+        #print(f"test dataset after mapping: {self.dataset['test'][:5]}")
 
         self.dataset['train'].set_format('torch', columns=['input_ids', 'attention_mask', 'labels', 'lids'])
         self.dataset['validation'].set_format('torch', columns=['input_ids', 'attention_mask', 'labels', 'lids'])
@@ -261,6 +268,6 @@ class CrossValidationLinceDM(LinceDM):
         return DataLoader(
             dataset=self.dataset["test"], 
             batch_size=self.batch_size,
-            num_workers=self.num_workers,
+            num_workers=15,
             drop_last=True
         )
